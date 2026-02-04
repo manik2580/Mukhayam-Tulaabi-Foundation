@@ -49,12 +49,9 @@ if (process.env.MONGODB_URI) {
 // Connect to MongoDB
 if (process.env.MONGODB_URI) {
   mongoose
-    .connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    })
-    .then(() => console.log('MongoDB connected'))
-    .catch((err) => console.error('MongoDB connection error:', err));
+    .connect(process.env.MONGODB_URI)
+    .then(() => console.log('✓ MongoDB connected successfully'))
+    .catch((err) => console.error('✗ MongoDB connection error:', err));
 } else {
   console.log('⚠️ MONGODB_URI not set. Using in-memory storage.');
 }
@@ -92,6 +89,28 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+
+const server = app.listen(PORT, () => {
+  console.log(`✓ Server running on http://localhost:${PORT}`);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
+});
+
+// Handle port already in use
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`✗ Port ${PORT} is already in use. Please close other processes or use a different PORT.`);
+    process.exit(1);
+  }
+  throw err;
 });
